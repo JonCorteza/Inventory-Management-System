@@ -2,9 +2,6 @@ package inventorymanagementsystem.model;
 
 import java.math.BigDecimal;
 
-/**
- * Plain Java object mapped to the `product` table.
- */
 public class Product {
 
     private int idno;

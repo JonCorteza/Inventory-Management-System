@@ -4,7 +4,6 @@ import inventorymanagementsystem.dao.ProductDAO;
 import inventorymanagementsystem.model.Product;
 import inventorymanagementsystem.ui.component.ProductTableModel;
 import inventorymanagementsystem.ui.component.StockLevelRenderer;
-import inventorymanagementsystem.ui.component.TableActionsEditor;
 import inventorymanagementsystem.ui.component.TableActionsRenderer;
 
 import javax.swing.JButton;
@@ -23,6 +22,9 @@ import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.FlowLayout;
 import java.awt.Frame;
+import java.awt.Rectangle;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -42,11 +44,20 @@ public class ProductManagementPanel extends JPanel {
     private final JLabel pageInfoLabel = new JLabel();
     private final JLabel pageNumbersLabel = new JLabel();
 
+    /** When false, Add/Update/Delete and the per-row action icons are hidden - used to embed a read-only, search-only table on the Report Generation screen. */
+    private final boolean showCrudActions;
+
     private int currentPage = 1;
     private final int pageSize = 10;
     private int totalCount = 0;
 
+    /** Full CRUD screen - used for the standalone "Product Management" nav item. */
     public ProductManagementPanel() {
+        this(true);
+    }
+
+    public ProductManagementPanel(boolean showCrudActions) {
+        this.showCrudActions = showCrudActions;
         setLayout(new BorderLayout(0, 14));
         setOpaque(false);
         setBorder(new EmptyBorder(6, 0, 0, 0));
@@ -62,34 +73,48 @@ public class ProductManagementPanel extends JPanel {
         JPanel bar = new JPanel(new BorderLayout(12, 0));
         bar.setOpaque(false);
 
+        JPanel searchWrap = new JPanel(new BorderLayout(8, 0));
+        searchWrap.setOpaque(false);
+
         UITheme.styleTextField(searchField);
         searchField.putClientProperty("JTextField.placeholderText", "Search products...");
         searchField.addActionListener(e -> {
             currentPage = 1;
             reload();
         });
-        bar.add(searchField, BorderLayout.CENTER);
+        searchWrap.add(searchField, BorderLayout.CENTER);
 
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        actions.setOpaque(false);
+        JButton refresh = new JButton("\u21BB Refresh");
+        UITheme.styleSecondaryButton(refresh);
+        refresh.setToolTipText("Re-run the search and reload the latest data");
+        refresh.addActionListener(e -> reload());
+        searchWrap.add(refresh, BorderLayout.EAST);
 
-        JButton add = new JButton("+ ADD PRODUCT");
-        UITheme.stylePrimaryButton(add);
-        add.addActionListener(e -> openAddDialog());
+        bar.add(searchWrap, BorderLayout.CENTER);
 
-        JButton update = new JButton("\u270E UPDATE PRODUCT");
-        UITheme.styleSecondaryButton(update);
-        update.addActionListener(e -> openUpdateDialogForSelection());
+        if (showCrudActions) {
+            JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+            actions.setOpaque(false);
 
-        JButton delete = new JButton("\uD83D\uDDD1 DELETE PRODUCT");
-        UITheme.styleDangerButton(delete);
-        delete.addActionListener(e -> deleteSelection());
+            JButton add = new JButton("+ ADD PRODUCT");
+            UITheme.stylePrimaryButton(add);
+            add.addActionListener(e -> openAddDialog());
 
-        actions.add(add);
-        actions.add(update);
-        actions.add(delete);
+            JButton update = new JButton("\u270E UPDATE PRODUCT");
+            UITheme.styleSecondaryButton(update);
+            update.addActionListener(e -> openUpdateDialogForSelection());
 
-        bar.add(actions, BorderLayout.EAST);
+            JButton delete = new JButton("\uD83D\uDDD1 DELETE PRODUCT");
+            UITheme.styleDangerButton(delete);
+            delete.addActionListener(e -> deleteSelection());
+
+            actions.add(add);
+            actions.add(update);
+            actions.add(delete);
+
+            bar.add(actions, BorderLayout.EAST);
+        }
+
         return bar;
     }
 
@@ -109,17 +134,43 @@ public class ProductManagementPanel extends JPanel {
         header.setFont(UITheme.FONT_BOLD);
         header.setReorderingAllowed(false);
 
-        table.getColumnModel().getColumn(0).setMaxWidth(36);
+        table.getColumnModel().getColumn(0).setMinWidth(0);
+        table.getColumnModel().getColumn(0).setMaxWidth(showCrudActions ? 36 : 0);
+        table.getColumnModel().getColumn(0).setPreferredWidth(showCrudActions ? 36 : 0);
         table.getColumnModel().getColumn(1).setPreferredWidth(70);
         table.getColumnModel().getColumn(3).setPreferredWidth(220);
         table.getColumnModel().getColumn(7).setCellRenderer(new StockLevelRenderer(20, 5));
 
-        table.getColumnModel().getColumn(8).setMaxWidth(70);
-        table.getColumnModel().getColumn(8).setCellRenderer(new TableActionsRenderer());
-        table.getColumnModel().getColumn(8).setCellEditor(new TableActionsEditor(
-                this::openUpdateDialogForRow,
-                this::deleteRow
-        ));
+        table.getColumnModel().getColumn(8).setMinWidth(0);
+        table.getColumnModel().getColumn(8).setMaxWidth(showCrudActions ? 70 : 0);
+        table.getColumnModel().getColumn(8).setPreferredWidth(showCrudActions ? 70 : 0);
+
+        if (showCrudActions) {
+            table.getColumnModel().getColumn(8).setCellRenderer(new TableActionsRenderer());
+
+            // A JButton embedded as a table cell EDITOR needs two clicks in
+            // Swing (the first click only starts editing / swaps the editor
+            // component in; the button itself doesn't receive that click).
+            // A plain MouseListener on the table fires on the very first
+            // click instead, so it's used here for the pencil/trash icons.
+            table.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    int col = table.columnAtPoint(e.getPoint());
+                    int row = table.rowAtPoint(e.getPoint());
+                    if (col != 8 || row < 0) {
+                        return;
+                    }
+                    Rectangle cellRect = table.getCellRect(row, col, false);
+                    boolean clickedLeftHalf = e.getX() < cellRect.x + cellRect.width / 2;
+                    if (clickedLeftHalf) {
+                        openUpdateDialogForRow(row);
+                    } else {
+                        deleteRow(row);
+                    }
+                }
+            });
+        }
 
         JScrollPane scroll = new JScrollPane(table);
         scroll.getViewport().setBackground(UITheme.BG_PANEL);
@@ -194,20 +245,30 @@ public class ProductManagementPanel extends JPanel {
         ProductDialog dialog = new ProductDialog((Frame) SwingUtilities.getWindowAncestor(this), null);
         dialog.setVisible(true);
         if (dialog.isSaved()) {
-            productDAO.insert(dialog.getResult());
-            reload();
+            try {
+                productDAO.insert(dialog.getResult());
+                reload();
+                JOptionPane.showMessageDialog(this, "Product added successfully.",
+                        "Add Product", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                showDbError("add the product", ex);
+            }
         }
     }
 
+    /**
+     * Update uses the table's normal (single) row selection - click a row,
+     * then click this button - rather than requiring a checkbox tick.
+     * Checkboxes are reserved for bulk delete.
+     */
     private void openUpdateDialogForSelection() {
-        Set<Integer> checked = tableModel.getCheckedIds();
-        if (checked.size() != 1) {
-            JOptionPane.showMessageDialog(this, "Select exactly one product to update.",
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Click a row to select it, then click Update Product.",
                     "Update Product", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        int idno = checked.iterator().next();
-        openUpdateDialogForProduct(productDAO.getById(idno));
+        openUpdateDialogForProduct(tableModel.getProductAt(row));
     }
 
     private void openUpdateDialogForRow(int row) {
@@ -221,19 +282,38 @@ public class ProductManagementPanel extends JPanel {
         ProductDialog dialog = new ProductDialog((Frame) SwingUtilities.getWindowAncestor(this), existing);
         dialog.setVisible(true);
         if (dialog.isSaved()) {
-            productDAO.update(dialog.getResult());
-            reload();
+            try {
+                productDAO.update(dialog.getResult());
+                reload();
+                JOptionPane.showMessageDialog(this, "Product updated successfully.",
+                        "Update Product", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                showDbError("update the product", ex);
+            }
         }
     }
 
+    /**
+     * Deletes whatever is checked (bulk delete); if nothing is checked,
+     * falls back to whichever row is currently selected so a single click
+     * + Delete still works without ticking a box first.
+     */
     private void deleteSelection() {
         Set<Integer> checked = tableModel.getCheckedIds();
-        if (checked.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Select at least one product to delete.",
-                    "Delete Product", JOptionPane.INFORMATION_MESSAGE);
-            return;
+        List<Integer> ids;
+        if (!checked.isEmpty()) {
+            ids = new ArrayList<>(checked);
+        } else {
+            int row = table.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this,
+                        "Check one or more products, or click a row, then click Delete Product.",
+                        "Delete Product", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            ids = Collections.singletonList(tableModel.getProductAt(row).getIdno());
         }
-        confirmAndDelete(new ArrayList<>(checked));
+        confirmAndDelete(ids);
     }
 
     private void deleteRow(int row) {
@@ -245,9 +325,28 @@ public class ProductManagementPanel extends JPanel {
                 "Delete " + ids.size() + " product(s)? This cannot be undone.",
                 "Confirm Delete", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (choice == JOptionPane.YES_OPTION) {
-            productDAO.deleteMultiple(ids);
-            tableModel.clearChecked();
-            reload();
+            try {
+                productDAO.deleteMultiple(ids);
+                tableModel.clearChecked();
+                reload();
+                JOptionPane.showMessageDialog(this,
+                        ids.size() == 1 ? "Product deleted successfully." : ids.size() + " products deleted successfully.",
+                        "Delete Product", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                showDbError("delete the product(s)", ex);
+            }
         }
+    }
+
+    /**
+     * Shows the ACTUAL database error instead of failing silently. If you
+     * see a foreign key message here, it means the product still has
+     * rows in `inventory` referencing it - MySQL is refusing the delete
+     * to protect that history.
+     */
+    private void showDbError(String action, Exception ex) {
+        JOptionPane.showMessageDialog(this,
+                "Could not " + action + ":\n" + ex.getMessage(),
+                "Database Error", JOptionPane.ERROR_MESSAGE);
     }
 }

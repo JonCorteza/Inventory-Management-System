@@ -4,6 +4,7 @@ import inventorymanagementsystem.db.DBConnection;
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 import java.awt.BorderLayout;
@@ -52,6 +53,17 @@ public class SettingsPanel extends JPanel {
                     ? "\u25CF Connected to inventory_management via XAMPP"
                     : "\u25CF Not connected");
             status.setForeground(nowOk ? UITheme.ACCENT_GREEN : UITheme.DANGER_RED);
+            if (nowOk) {
+                JOptionPane.showMessageDialog(this,
+                        "Connection established with XAMPP's MySQL server.",
+                        "Database Connection", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this,
+                        "Could not connect to 'inventory_management'.\n"
+                        + "Make sure XAMPP's MySQL service is running and the\n"
+                        + "database has been imported.",
+                        "Database Connection", JOptionPane.ERROR_MESSAGE);
+            }
         });
         card.add(retest, gc);
 

@@ -4,21 +4,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
-/**
- * Single point of contact with MySQL/XAMPP. Every DAO calls
- * {@link #getConnection()} instead of opening its own connection.
- *
- * XAMPP defaults used below:
- *   host = localhost, port = 3306, user = root, password = "" (empty)
- * Change USER/PASSWORD here if you've secured your XAMPP MySQL install.
- *
- * Setup required in NetBeans before this will compile & run:
- *   1. Download "MySQL Connector/J" (mysql-connector-j-x.x.x.jar).
- *   2. Right-click the project -> Properties -> Libraries -> Add JAR/Folder,
- *      and select the downloaded jar.
- *   3. Start XAMPP, turn on the MySQL module, and import
- *      inventory_management.sql via phpMyAdmin (or the mysql CLI).
- */
 public class DBConnection {
 
     private static final String DB_HOST = "localhost";

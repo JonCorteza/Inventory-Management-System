@@ -13,10 +13,8 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 
-/**
- * Renders the "STOCK LEVEL" column as a colored dot + number, matching
- * the mockup: green = healthy, yellow = low, red = critical/out.
- */
+ // Stock Level indicator color 1 ≤ stock ≤ 5 = low level | stock 6 ≤ stock ≤ 20 = mid level | stock ≥ 21 green color = good level
+ 
 public class StockLevelRenderer extends DefaultTableCellRenderer {
 
     private final int lowThreshold;

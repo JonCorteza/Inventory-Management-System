@@ -17,7 +17,7 @@ import java.util.Set;
 public class ProductTableModel extends AbstractTableModel {
 
     public static final String[] COLUMNS = {
-        "", "ID NO", "PRODUCT NAME", "DESCRIPTION", "CATEGORY", "BRAND", "PRICE ($)", "STOCK LEVEL", ""
+        "", "ID NO", "PRODUCT NAME", "DESCRIPTION", "CATEGORY", "BRAND", "PRICE (₱)", "STOCK LEVEL", ""
     };
 
     private List<Product> rows = new ArrayList<>();

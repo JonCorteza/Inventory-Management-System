@@ -209,7 +209,7 @@ public class DashboardPanel extends JPanel {
 
     private void notImplementedYet(String feature) {
         JOptionPane.showMessageDialog(this,
-                feature + " is a placeholder - hook it up to Apache POI / PDFBox here.",
+                feature + "Upcoming Feature",
                 feature, JOptionPane.INFORMATION_MESSAGE);
     }
 }

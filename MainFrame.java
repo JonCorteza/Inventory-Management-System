@@ -49,7 +49,7 @@ public class MainFrame extends JFrame {
         add(buildSidebar(), BorderLayout.WEST);
         add(buildContent(), BorderLayout.CENTER);
 
-        setActiveNav("Dashboard");
+        setActiveNav("Report Generation");
     }
 
     private JComponent buildTopBar() {
@@ -76,9 +76,8 @@ public class MainFrame extends JFrame {
         sidebar.setBorder(new EmptyBorder(12, 0, 0, 0));
         sidebar.setPreferredSize(new Dimension(210, 0));
 
-        addNavButton("Dashboard", "\u25A6");
-        addNavButton("Product Management", "\u2630");
         addNavButton("Report Generation", "\u25B4");
+        addNavButton("Product Management", "\u2630");
         addNavButton("System Settings", "\u2699");
 
         sidebar.add(Box.createVerticalGlue());
@@ -119,11 +118,10 @@ public class MainFrame extends JFrame {
         contentPanel.setBackground(UITheme.BG_APP);
         contentPanel.setBorder(new EmptyBorder(0, 12, 12, 24));
 
-        // "Dashboard" and "Report Generation" both point at the same
-        // reporting view shown in the second mockup.
-        contentPanel.add(new DashboardPanel(), "Dashboard");
-        contentPanel.add(new ProductManagementPanel(), "Product Management");
+        // Report Generation shows the reporting view (cards + read-only
+        // product table + supplier directory) from the second mockup.
         contentPanel.add(new DashboardPanel(), "Report Generation");
+        contentPanel.add(new ProductManagementPanel(), "Product Management");
         contentPanel.add(new SettingsPanel(), "System Settings");
 
         return contentPanel;

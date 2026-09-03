@@ -24,11 +24,7 @@ public class DBConnection {
     private DBConnection() {
     }
 
-    /**
-     * Returns a live connection, opening a new one if none exists yet or
-     * the previous one was closed. Callers should still use try-with-resources
-     * on the Connection/Statement/ResultSet they obtain from it.
-     */
+   // Execption handler to check the connection
     public static Connection getConnection() {
         try {
             if (connection == null || connection.isClosed()) {

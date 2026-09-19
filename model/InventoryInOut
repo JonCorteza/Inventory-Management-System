@@ -1,0 +1,73 @@
+package inventorymanagementsystem.model;
+
+import java.sql.Timestamp;
+
+public class InventoryInOut {
+
+    private int inventoryId;
+    private int productId;
+    private String productName;
+    private int quantity;
+    private Timestamp transactionDate;
+
+    public InventoryInOut() {
+    }
+
+    public InventoryInOut(int inventoryId, int productId, String productName,
+                          int quantity, Timestamp transactionDate) {
+        this.inventoryId = inventoryId;
+        this.productId = productId;
+        this.productName = productName;
+        this.quantity = quantity;
+        this.transactionDate = transactionDate;
+    }
+
+    public InventoryInOut(int productId, int quantity) {
+        this.productId = productId;
+        this.quantity = quantity;
+    }
+
+    public int getInventoryId() {
+        return inventoryId;
+    }
+
+    public void setInventoryId(int inventoryId) {
+        this.inventoryId = inventoryId;
+    }
+
+    public int getProductId() {
+        return productId;
+    }
+
+    public void setProductId(int productId) {
+        this.productId = productId;
+    }
+
+    public String getProductName() {
+        return productName;
+    }
+
+    public void setProductName(String productName) {
+        this.productName = productName;
+    }
+
+    public int getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
+    }
+
+    public Timestamp getTransactionDate() {
+        return transactionDate;
+    }
+
+    public void setTransactionDate(Timestamp transactionDate) {
+        this.transactionDate = transactionDate;
+    }
+
+    public String getMovementType() {
+        return quantity >= 0 ? "INCOMING" : "OUTGOING";
+    }
+}

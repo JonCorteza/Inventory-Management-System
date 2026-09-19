@@ -1,0 +1,289 @@
+package inventorymanagementsystem.ui;
+
+import inventorymanagementsystem.dao.SupplierDAO;
+import inventorymanagementsystem.model.Product;
+import inventorymanagementsystem.model.Supplier;
+
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
+import javax.swing.border.EmptyBorder;
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Frame;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.math.BigDecimal;
+import java.util.List;
+
+/**
+ * Single dialog reused for both "Add Product" and "Update Product" -
+ * pass an existing Product to pre-fill it in edit mode, or null to add.
+ */
+public class ProductDialog extends JDialog {
+
+    private final JTextField nameField = new JTextField();
+    private final JTextField descriptionField = new JTextField();
+
+    // change: Category is now controlled by a ComboBox
+    private final JComboBox<String> categoryComboBox = new JComboBox<>(
+            new String[]{
+                    "Mobile",
+                    "Laptop",
+                    "Camera",
+                    "Tablet",
+                    "Accessories",
+                    "Others"
+            }
+    );
+
+    private final JTextField brandField = new JTextField();
+    private final JTextField priceField = new JTextField();
+    private final JTextField stockField = new JTextField();
+
+    // change: Supplier selection
+    private final JComboBox<Supplier> supplierComboBox = new JComboBox<>();
+    private final SupplierDAO supplierDAO = new SupplierDAO();
+
+    private final Product editing;
+    private Product result;
+    private boolean saved = false;
+
+    public ProductDialog(Frame owner, Product existing) {
+        super(owner, existing == null ? "Add Product" : "Update Product", true);
+        this.editing = existing;
+
+        loadSuppliers();
+        buildUI();
+
+        if (existing != null) {
+            populateFrom(existing);
+        }
+
+        setSize(420, 470);
+        setLocationRelativeTo(owner);
+    }
+
+    private void loadSuppliers() {
+        List<Supplier> suppliers = supplierDAO.getAll();
+
+        supplierComboBox.removeAllItems();
+
+        for (Supplier supplier : suppliers) {
+            supplierComboBox.addItem(supplier);
+        }
+    }
+
+    private void buildUI() {
+        getContentPane().setBackground(UITheme.BG_APP);
+        setLayout(new BorderLayout(0, 12));
+
+        // Added Code (Para sa header nung ADD PRODUCT PANEL)
+        JLabel header = new JLabel(editing == null ? "ADD PRODUCT" : "Update Product");
+        header.setForeground(UITheme.TEXT_PRIMARY);
+        header.setFont(UITheme.FONT_TITLE);
+        header.setBorder(new EmptyBorder(20, 25, 10, 20));
+
+        add(header, BorderLayout.NORTH);
+
+        JPanel form = new JPanel(new GridBagLayout());
+        form.setOpaque(false);
+        form.setBorder(new EmptyBorder(20, 20, 10, 20));
+
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.insets = new Insets(6, 6, 6, 6);
+        gc.fill = GridBagConstraints.HORIZONTAL;
+
+        addField(form, gc, 0, "Name", nameField);
+        addField(form, gc, 1, "Description", descriptionField);
+        addComboField(form, gc, 2, "Category", categoryComboBox);
+        addField(form, gc, 3, "Brand", brandField);
+        addComboField(form, gc, 4, "Supplier", supplierComboBox);
+        addField(form, gc, 5, "Price", priceField);
+        addField(form, gc, 6, "Stock", stockField);
+
+        add(form, BorderLayout.CENTER);
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+        buttons.setOpaque(false);
+
+        JButton cancel = new JButton("Cancel");
+        UITheme.styleSecondaryButton(cancel);
+
+        // Added code (same size with add button)
+        cancel.setPreferredSize(new Dimension(72, 35));
+
+        cancel.addActionListener(e -> dispose());
+
+        JButton save = new JButton(editing == null ? "Add" : "Save");
+        UITheme.stylePrimaryButton(save);
+        save.addActionListener(e -> onSave());
+
+        buttons.add(cancel);
+        buttons.add(save);
+
+        add(buttons, BorderLayout.SOUTH);
+    }
+
+    private void addField(
+            JPanel form,
+            GridBagConstraints gc,
+            int row,
+            String label,
+            JTextField field) {
+
+        gc.gridx = 0;
+        gc.gridy = row;
+        gc.weightx = 0;
+
+        JLabel l = new JLabel(label);
+        l.setForeground(UITheme.TEXT_MUTED);
+        l.setFont(UITheme.FONT_BODY);
+
+        form.add(l, gc);
+
+        gc.gridx = 1;
+        gc.weightx = 1;
+
+        UITheme.styleTextField(field);
+        form.add(field, gc);
+    }
+
+    private void addComboField(
+            JPanel form,
+            GridBagConstraints gc,
+            int row,
+            String label,
+            JComboBox<?> comboBox) {
+
+        gc.gridx = 0;
+        gc.gridy = row;
+        gc.weightx = 0;
+
+        JLabel l = new JLabel(label);
+        l.setForeground(UITheme.TEXT_MUTED);
+        l.setFont(UITheme.FONT_BODY);
+
+        form.add(l, gc);
+
+        gc.gridx = 1;
+        gc.weightx = 1;
+
+        comboBox.setPreferredSize(new Dimension(0, 35));
+        comboBox.setBackground(UITheme.BG_PANEL);
+        comboBox.setForeground(UITheme.TEXT_PRIMARY);
+        comboBox.setFont(UITheme.FONT_BODY);
+        comboBox.setPreferredSize(new Dimension(0, 35));
+
+        form.add(comboBox, gc);
+    }
+
+    private void populateFrom(Product p) {
+        nameField.setText(p.getName());
+        descriptionField.setText(p.getDescription());
+
+        // change: select existing category
+        categoryComboBox.setSelectedItem(p.getCategory());
+
+        brandField.setText(p.getBrand());
+
+        priceField.setText(
+                p.getPrice() == null ? "" : p.getPrice().toString()
+        );
+
+        stockField.setText(String.valueOf(p.getStock()));
+
+        // change: select existing supplier
+        Integer supplierId = p.getSupplierId();
+
+        if (supplierId != null) {
+            for (int i = 0; i < supplierComboBox.getItemCount(); i++) {
+                Supplier supplier = supplierComboBox.getItemAt(i);
+
+                if (supplier.getSupplierId() == supplierId) {
+                    supplierComboBox.setSelectedIndex(i);
+                    break;
+                }
+            }
+        } else {
+            supplierComboBox.setSelectedItem(null);
+        }
+    }
+
+    private void onSave() {
+
+        if (nameField.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Product name is required.",
+                    "Validation",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        BigDecimal price;
+        int stock;
+
+        try {
+            price = new BigDecimal(priceField.getText().trim());
+            stock = Integer.parseInt(stockField.getText().trim());
+
+        } catch (NumberFormatException ex) {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Price and Stock must be numbers.",
+                    "Validation",
+                    JOptionPane.WARNING_MESSAGE
+            );
+
+            return;
+        }
+
+        result = editing == null ? new Product() : editing;
+
+        result.setName(nameField.getText().trim());
+        result.setDescription(descriptionField.getText().trim());
+
+        // change: get category from ComboBox
+        result.setCategory(
+                categoryComboBox.getSelectedItem() == null
+                        ? ""
+                        : categoryComboBox.getSelectedItem().toString()
+        );
+
+        result.setBrand(brandField.getText().trim());
+
+        result.setPrice(price);
+        result.setStock(stock);
+
+        // change: get supplier ID from selected Supplier
+        Supplier selectedSupplier =
+                (Supplier) supplierComboBox.getSelectedItem();
+
+        if (selectedSupplier != null) {
+            result.setSupplierId(selectedSupplier.getSupplierId());
+        } else {
+            result.setSupplierId(null);
+        }
+
+        saved = true;
+        dispose();
+    }
+
+    public boolean isSaved() {
+        return saved;
+    }
+
+    public Product getResult() {
+        return result;
+    }
+}

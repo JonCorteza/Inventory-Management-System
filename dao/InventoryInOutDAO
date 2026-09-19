@@ -1,0 +1,132 @@
+package inventorymanagementsystem.dao;
+
+import inventorymanagementsystem.db.DBConnection;
+import inventorymanagementsystem.model.InventoryInOut;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class InventoryInOutDAO {
+
+    /**
+     * Records an inventory movement and updates the product stock.
+     *
+     * Positive quantity = Incoming
+     * Negative quantity = Outgoing
+     */
+    public boolean recordMovement(int productId, int quantity) {
+
+        if (quantity == 0) {
+            return false;
+        }
+
+        String updateStockSql;
+        String insertMovementSql =
+                "INSERT INTO inventory (product_id, quantity) VALUES (?, ?)";
+
+        try (Connection conn = DBConnection.getConnection()) {
+
+            // Keep stock update and inventory record in one transaction
+            conn.setAutoCommit(false);
+
+            if (quantity > 0) {
+
+                // Incoming stock
+                updateStockSql =
+                        "UPDATE product "
+                        + "SET stock = stock + ? "
+                        + "WHERE idno = ?";
+
+            } else {
+
+                // Outgoing stock
+                // Prevent stock from becoming negative
+                updateStockSql =
+                        "UPDATE product "
+                        + "SET stock = stock + ? "
+                        + "WHERE idno = ? AND stock >= ?";
+            }
+
+            try (PreparedStatement psStock =
+                         conn.prepareStatement(updateStockSql)) {
+
+                psStock.setInt(1, quantity);
+                psStock.setInt(2, productId);
+
+                // For outgoing, check available stock
+                if (quantity < 0) {
+                    psStock.setInt(3, Math.abs(quantity));
+                }
+
+                int updatedRows = psStock.executeUpdate();
+
+                if (updatedRows == 0) {
+                    conn.rollback();
+                    return false;
+                }
+            }
+
+            // Save movement history
+            try (PreparedStatement psMovement =
+                         conn.prepareStatement(insertMovementSql)) {
+
+                psMovement.setInt(1, productId);
+                psMovement.setInt(2, quantity);
+
+                psMovement.executeUpdate();
+            }
+
+            conn.commit();
+            return true;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Gets all inventory movements.
+     */
+    public List<InventoryInOut> getAllMovements() {
+
+        List<InventoryInOut> list = new ArrayList<>();
+
+        String sql =
+                "SELECT i.inventory_id, "
+                + "i.product_id, "
+                + "p.name AS product_name, "
+                + "i.quantity, "
+                + "i.transaction_date "
+                + "FROM inventory i "
+                + "JOIN product p ON i.product_id = p.idno "
+                + "ORDER BY i.transaction_date DESC, i.inventory_id DESC";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+
+                InventoryInOut movement = new InventoryInOut(
+                        rs.getInt("inventory_id"),
+                        rs.getInt("product_id"),
+                        rs.getString("product_name"),
+                        rs.getInt("quantity"),
+                        rs.getTimestamp("transaction_date")
+                );
+
+                list.add(movement);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return list;
+    }
+}

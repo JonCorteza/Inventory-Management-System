@@ -1,0 +1,508 @@
+package inventorymanagementsystem.ui;
+
+import inventorymanagementsystem.dao.InventoryInOutDAO;
+import inventorymanagementsystem.dao.ProductDAO;
+import inventorymanagementsystem.model.InventoryInOut;
+import inventorymanagementsystem.model.Product;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.util.List;
+import java.text.SimpleDateFormat;
+import javax.swing.table.JTableHeader;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
+
+public class InventoryInOutPanel extends JPanel {
+
+    private final ProductDAO productDAO = new ProductDAO();
+    private final InventoryInOutDAO inventoryDAO = new InventoryInOutDAO();
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy h:mm a");
+
+    private JComboBox<Product> productComboBox;
+    private JTextField quantityField;
+    private JTable movementTable;
+    private DefaultTableModel tableModel;
+    private JLabel currentStockLabel;
+
+    public InventoryInOutPanel() {
+
+        setLayout(new BorderLayout(0, 16));
+        setOpaque(false);
+        setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        add(buildHeader(), BorderLayout.NORTH);
+        add(buildCenter(), BorderLayout.CENTER);
+
+        loadProducts();
+        loadMovements();
+    }
+
+    private JPanel buildHeader() {
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+
+        JLabel title = new JLabel("Inventory In / Out");
+        title.setForeground(UITheme.TEXT_PRIMARY);
+        title.setFont(UITheme.FONT_TITLE.deriveFont(20f));
+
+        JLabel subtitle = new JLabel(
+                "Monitor incoming and outgoing stock movements"
+        );
+        subtitle.setForeground(UITheme.TEXT_MUTED);
+        subtitle.setFont(UITheme.FONT_BODY);
+
+        JPanel titlePanel = new JPanel();
+        titlePanel.setOpaque(false);
+        titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
+
+        titlePanel.add(title);
+        titlePanel.add(Box.createVerticalStrut(4));
+        titlePanel.add(subtitle);
+
+        header.add(titlePanel, BorderLayout.WEST);
+
+        return header;
+    }
+
+    private JPanel buildCenter() {
+
+        JPanel center = new JPanel(new BorderLayout(0, 15));
+        center.setOpaque(false);
+
+        center.add(buildMovementForm(), BorderLayout.NORTH);
+        center.add(buildMovementTable(), BorderLayout.CENTER);
+
+        return center;
+    }
+
+    private JPanel buildMovementForm() {
+
+    JPanel form = new JPanel(new BorderLayout(12, 0));
+    form.setBackground(UITheme.BG_PANEL);
+    form.setBorder(UITheme.cardBorder());
+
+    // Left side: Product and Current Stock
+    JPanel leftFields = new JPanel(new FlowLayout(
+            FlowLayout.LEFT, 7, 10
+    ));
+    leftFields.setOpaque(false);
+
+    JLabel productLabel = new JLabel("Product:");
+    productLabel.setForeground(UITheme.TEXT_MUTED);
+    productLabel.setFont(UITheme.FONT_BODY);
+
+    productComboBox = new JComboBox<>();
+    productComboBox.setFont(UITheme.FONT_BODY);
+    productComboBox.setBackground(UITheme.BG_PANEL);
+    productComboBox.setForeground(UITheme.TEXT_PRIMARY);
+    productComboBox.setPreferredSize(new Dimension(220, 35));
+    productComboBox.addActionListener(e -> {
+        updateCurrentStock();
+        loadMovements();
+    });
+
+    JLabel stockLabel = new JLabel("Current Stock:");
+    stockLabel.setForeground(UITheme.TEXT_MUTED);
+    stockLabel.setFont(UITheme.FONT_BODY);
+
+    currentStockLabel = new JLabel("0");
+    currentStockLabel.setForeground(UITheme.TEXT_PRIMARY);
+    currentStockLabel.setFont(UITheme.FONT_BODY);
+    currentStockLabel.setPreferredSize(new Dimension(70, 35));
+
+    leftFields.add(productLabel);
+    leftFields.add(productComboBox);
+    leftFields.add(stockLabel);
+    leftFields.add(currentStockLabel);
+
+    // Center: Quantity
+    JPanel quantityPanel = new JPanel(new BorderLayout(7, 0));
+    quantityPanel.setOpaque(false);
+    quantityPanel.setBorder(new EmptyBorder(10, 0, 10, 0));
+
+    JLabel quantityLabel = new JLabel("Quantity:");
+    quantityLabel.setForeground(UITheme.TEXT_MUTED);
+    quantityLabel.setFont(UITheme.FONT_BODY);
+
+    quantityField = new JTextField();
+    UITheme.styleTextField(quantityField);
+
+    quantityPanel.add(quantityLabel, BorderLayout.WEST);
+    quantityPanel.add(quantityField, BorderLayout.CENTER);
+
+    // Right side: Action buttons
+    JPanel actions = new JPanel(new FlowLayout(
+            FlowLayout.RIGHT, 7, 10
+    ));
+    actions.setOpaque(false);
+
+    JButton incomingButton = new JButton("INCOMING");
+    UITheme.stylePrimaryButton(incomingButton);
+    incomingButton.setPreferredSize(new Dimension(105, 35));
+    incomingButton.addActionListener(e -> processIncoming());
+
+    JButton outgoingButton = new JButton("OUTGOING");
+    UITheme.styleDangerButton(outgoingButton);
+    outgoingButton.setPreferredSize(new Dimension(105, 35));
+    outgoingButton.addActionListener(e -> processOutgoing());
+
+    JButton refreshButton = new JButton("REFRESH");
+    UITheme.styleSecondaryButton(refreshButton);
+    refreshButton.setPreferredSize(new Dimension(105, 35));
+    refreshButton.addActionListener(e -> {
+        loadProducts();
+        loadMovements();
+    });
+
+    actions.add(incomingButton);
+    actions.add(outgoingButton);
+    actions.add(refreshButton);
+
+    form.add(leftFields, BorderLayout.WEST);
+    form.add(quantityPanel, BorderLayout.CENTER);
+    form.add(actions, BorderLayout.EAST);
+
+    return form;
+}
+    
+    private void updateCurrentStock() {
+
+    Product selectedProduct =
+            (Product) productComboBox.getSelectedItem();
+
+    if (selectedProduct == null) {
+        currentStockLabel.setText("0");
+        return;
+    }
+
+    currentStockLabel.setText(
+            String.valueOf(selectedProduct.getStock())
+    );
+}
+
+    private JScrollPane buildMovementTable() {
+
+    tableModel = new DefaultTableModel(
+            new Object[]{
+                    "ID",
+                    "PRODUCT",
+                    "TYPE",
+                    "QUANTITY",
+                    "DATE"
+            }, 0) {
+
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return false;
+        }
+    };
+
+    movementTable = new JTable(tableModel);
+
+    // Match Product Management table styling
+    movementTable.setRowHeight(34);
+    movementTable.setBackground(UITheme.BG_PANEL);
+    movementTable.setForeground(UITheme.TEXT_PRIMARY);
+    movementTable.setGridColor(new Color(0x22, 0x22, 0x22));
+    movementTable.setSelectionBackground(UITheme.BG_TABLE_ALT);
+    movementTable.setSelectionForeground(UITheme.TEXT_PRIMARY);
+    movementTable.setShowVerticalLines(false);
+    movementTable.setFillsViewportHeight(true);
+
+    // Match the system table header
+    JTableHeader header = movementTable.getTableHeader();
+    header.setBackground(UITheme.BG_PANEL);
+    header.setForeground(UITheme.ACCENT_GREEN);
+    header.setFont(UITheme.FONT_BOLD);
+    header.setReorderingAllowed(false);
+
+    // Center ID, Type, Quantity and Date
+    DefaultTableCellRenderer centerRenderer =
+            new DefaultTableCellRenderer();
+
+    centerRenderer.setHorizontalAlignment(
+            SwingConstants.CENTER
+    );
+
+    movementTable.getColumnModel()
+            .getColumn(0)
+            .setCellRenderer(centerRenderer);
+
+    movementTable.getColumnModel()
+            .getColumn(2)
+            .setCellRenderer(centerRenderer);
+
+    movementTable.getColumnModel()
+            .getColumn(3)
+            .setCellRenderer(centerRenderer);
+
+    movementTable.getColumnModel()
+            .getColumn(4)
+            .setCellRenderer(centerRenderer);
+
+    // Keep your existing column widths
+    movementTable.getColumnModel()
+            .getColumn(0)
+            .setPreferredWidth(60);
+
+    movementTable.getColumnModel()
+            .getColumn(1)
+            .setPreferredWidth(220);
+
+    movementTable.getColumnModel()
+            .getColumn(2)
+            .setPreferredWidth(120);
+
+    movementTable.getColumnModel()
+            .getColumn(3)
+            .setPreferredWidth(100);
+
+    movementTable.getColumnModel()
+            .getColumn(4)
+            .setPreferredWidth(180);
+
+    JScrollPane scrollPane =
+            new JScrollPane(movementTable);
+
+    scrollPane.getViewport().setBackground(
+            UITheme.BG_PANEL
+    );
+
+    scrollPane.setBorder(
+            UITheme.cardBorder()
+    );
+
+    return scrollPane;
+}
+
+    private void loadProducts() {
+
+        // Remember what was selected so the filter doesn't reset
+        // every time the combo box gets rebuilt (e.g. after an
+        // Incoming/Outgoing action or a manual Refresh).
+        Product previouslySelected =
+                (Product) productComboBox.getSelectedItem();
+
+        productComboBox.removeAllItems();
+
+        List<Product> products =
+                productDAO.getProducts(1, 10000, null);
+
+        for (Product product : products) {
+            productComboBox.addItem(product);
+        }
+
+        if (previouslySelected != null) {
+            for (int i = 0; i < productComboBox.getItemCount(); i++) {
+
+                Product product = productComboBox.getItemAt(i);
+
+                if (product.getIdno() == previouslySelected.getIdno()) {
+                    productComboBox.setSelectedIndex(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    private void loadMovements() {
+
+        tableModel.setRowCount(0);
+
+        Product selectedProduct =
+                (Product) productComboBox.getSelectedItem();
+
+        // No product selected (e.g. product list is empty) -> nothing to show.
+        if (selectedProduct == null) {
+            return;
+        }
+
+        List<InventoryInOut> movements =
+                inventoryDAO.getAllMovements();
+
+        for (InventoryInOut movement : movements) {
+
+            // Only keep movements (both INCOMING and OUTGOING) that
+            // belong to the product currently selected above.
+            //
+            // NOTE: matched here by product name, since that's the
+            // field exposed on InventoryInOut. If your InventoryInOut
+            // model has (or you add) a getProductId(), prefer comparing
+            // that against selectedProduct.getIdno() instead - it's a
+            // safer match if two products can ever share the same name.
+            if (!selectedProduct.getName().equals(movement.getProductName())) {
+                continue;
+            }
+
+            String formattedDate = "";
+
+            if (movement.getTransactionDate() != null) {
+                formattedDate =
+                        dateFormat.format(movement.getTransactionDate());
+            }
+
+            tableModel.addRow(new Object[]{
+                    movement.getInventoryId(),
+                    movement.getProductName(),
+                    movement.getMovementType(),
+                    Math.abs(movement.getQuantity()),
+                    formattedDate
+            });
+        }
+    }
+
+    private void processIncoming() {
+
+        Product selectedProduct =
+                (Product) productComboBox.getSelectedItem();
+
+        if (selectedProduct == null) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Please select a product.",
+                    "Inventory",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        int quantity = getQuantity();
+
+        if (quantity <= 0) {
+            return;
+        }
+
+        boolean success = inventoryDAO.recordMovement(
+                selectedProduct.getIdno(),
+                quantity
+        );
+
+        if (success) {
+
+            loadProducts();
+            loadMovements();
+            updateCurrentStock();
+
+            quantityField.setText("");
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Incoming stock recorded successfully."
+            );
+
+        } else {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Unable to record incoming stock.",
+                    "Inventory",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    private void processOutgoing() {
+
+        Product selectedProduct =
+                (Product) productComboBox.getSelectedItem();
+
+        if (selectedProduct == null) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Please select a product.",
+                    "Inventory",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        int quantity = getQuantity();
+
+        if (quantity <= 0) {
+            return;
+        }
+
+        boolean success = inventoryDAO.recordMovement(
+                selectedProduct.getIdno(),
+                -quantity
+        );
+
+        if (success) {
+
+            loadProducts();
+            loadMovements();
+            updateCurrentStock();
+
+            quantityField.setText("");
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Outgoing stock recorded successfully."
+            );
+
+        } else {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Unable to record outgoing stock.\n"
+                    + "Make sure there is enough stock.",
+                    "Inventory",
+                    JOptionPane.WARNING_MESSAGE
+            );
+        }
+    }
+
+private int getQuantity() {
+
+    String text = quantityField.getText().trim();
+
+    if (text.isEmpty()) {
+
+        JOptionPane.showMessageDialog(
+                this,
+                "Quantity is invalid.\nPlease enter a quantity.",
+                "Invalid Quantity",
+                JOptionPane.WARNING_MESSAGE
+        );
+
+        return -1;
+    }
+
+    try {
+
+        int quantity = Integer.parseInt(text);
+
+        if (quantity <= 0) {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Quantity is invalid.\nPlease enter a number greater than zero.",
+                    "Invalid Quantity",
+                    JOptionPane.WARNING_MESSAGE
+            );
+
+            return -1;
+        }
+
+        return quantity;
+
+    } catch (NumberFormatException e) {
+
+        JOptionPane.showMessageDialog(
+                this,
+                "Quantity is invalid.\nPlease enter a whole number.",
+                "Invalid Quantity",
+                JOptionPane.WARNING_MESSAGE
+        );
+
+        return -1;
+    }
+}
+}
